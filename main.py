@@ -110,7 +110,7 @@ class Motor():
 		#	self.curr -= 1
 
 		value = 0xffff - 0xffff / 100 * (self.min + abs(self.power) / 100 * (self.max - self.min))
-		print(f'{self.power}\t{int(value)}')
+		#print(f'{self.power}\t{int(value)}')
 		if self.power > 0:
 			self.pin_1.duty_u16(0x0000)
 			self.pin_2.duty_u16(0xffff)
@@ -180,7 +180,7 @@ class Drive():
 
 
 
-class grayscale():
+class Grayscale():
 	gs0 = None
 	gs1 = None
 	gs2 = None
@@ -193,11 +193,83 @@ class grayscale():
 	def display(self):
 		print(f'{self.gs0.read_u16()}\t{self.gs1.read_u16()}\t{self.gs2.read_u16()}')
 
+
+class Ultrasonic():
+	trig = None
+	echo = None
+	servo = None
+
+	def __init__(self, trig = 9, echo = 8):
+		self.trig = machine.Pin(trig, machine.Pin.OUT)
+		self.echo = machine.Pin(echo, machine.Pin.IN)
+		self.servo = Servo()
+
+	def dist(self, angle = 0):
+		if angle != 0:
+			self.servo.set_angle(angle)
+		self.trig.high()
+		time.sleep_us(10)
+		self.trig.low()
+		pw = machine.time_pulse_us(self.echo, 1)
+		if angle != 0:
+			self.servo.set_angle(angle)
+		return pw
+	
+
+class Speed():
+	lc = 0
+	rc = 0
+	lpin = None
+	rpin = None
+
+	lrpm = 0
+	rrpm = 0
+	timer = None
+
+	def __init__(self, lpin = 7, rpin = 6):
+		self.lpin = machine.Pin(lpin, machine.Pin.IN, machine.Pin.PULL_UP)
+		self.rpin = machine.Pin(rpin, machine.Pin.IN, machine.Pin.PULL_UP)
+		self.lpin.irq(trigger=machine.Pin.IRQ_FALLING, handler=self.on_left)
+		self.lpin.irq(trigger=machine.Pin.IRQ_FALLING, handler=self.on_right)
+		
+		self.timer = machine.Timer()
+		self.timer.init(period=200, mode=machine.Timer.PERIODIC, callback=self.on_timer)
+	
+	def on_timer(self, t):
+		self.lrpm = self.lc * 5 * 60 / 20
+		self.rrpm = self.rc * 5 * 60 / 20
+		self.lc = 0
+		self.rc = 0
+
+	def on_left(self, ch):
+		self.lc += 1
+
+	def on_right(self, ch):
+		self.rc += 1
+
+
+class Servo():
+	servo = None
+
+	def __init__(self, pin = 18):
+		self.servo = machine.PWM(machine.Pin(pin, machine.Pin.OUT))
+		self.servo.freq(50)
+
+	def set_angle(self, angle):
+		if angle < -90:
+			angle = -90
+		elif angle > 90:
+			angle = 90
+
+		value = 0xffff * ((90 + angle) / 180 * 2000 + 500) / 20000
+		self.servo.duty_u16(int(value))
+
+
 #main function
 def main(main_count, lights, drive, gs):
 	#lights.status(0)
-	drive.lf.power = 100
-	drive.lf.cycle()
+	#drive.lf.power = 100
+	#drive.lf.cycle()
 	return
 
 	if int(main_count / 250) % 2 == 0:
